@@ -113,6 +113,9 @@ export function usePurchaseOrders() {
       tax_amount,
       total,
       notes: dto.notes,
+      reception_notes: null,
+      freight_cost: null,
+      received_total: null,
       issue_date: dto.issue_date,
       expected_date: dto.expected_date,
       user_id: user.id,
@@ -129,6 +132,7 @@ export function usePurchaseOrders() {
       unit_price: i.unit_price,
       subtotal: i.quantity * i.unit_price,
       received_quantity: 0,
+      rejected_quantity: 0,
     }))
 
     await db.purchaseOrders.put({ ...order, _syncStatus: 'pending' })
@@ -191,6 +195,7 @@ export function usePurchaseOrders() {
       unit_price: i.unit_price,
       subtotal: i.quantity * i.unit_price,
       received_quantity: 0,
+      rejected_quantity: 0,
     }))
 
     for (const item of newItems) {
