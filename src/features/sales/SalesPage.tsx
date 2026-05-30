@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from 'react'
-import { DollarSign, History, ShoppingCart, FileDown, XCircle } from 'lucide-react'
+import { DollarSign, History, ShoppingCart, FileDown, XCircle, ClipboardList, ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
@@ -10,9 +10,11 @@ import { formatDate, formatDateTime } from '@/shared/utils/date'
 import { useCompanyStore } from '@/features/company/store/company.store'
 import { useProducts } from '@/features/products/hooks/useProducts'
 import { useCustomers } from '@/features/customers/hooks/useCustomers'
+import { useCashRegister } from '@/features/cash-register/hooks/useCashRegister'
 import { db } from '@/core/db/dexie'
 import { ProductSearchPanel } from './components/ProductSearchPanel'
 import { CartPanel } from './components/CartPanel'
+import { SaleForm } from './components/SaleForm'
 import { useSales } from './hooks/useSales'
 import { generateSaleNotePdf } from './utils/generateSaleNotePdf'
 import type { Sale } from './types'
@@ -25,12 +27,14 @@ const STATUS_VARIANTS = {
 } as const
 
 export function SalesPage() {
-  const { sales, loading, load, cancel, getWithItems } = useSales()
+  const { sales, loading, load, confirm, cancel, getWithItems } = useSales()
   const { load: loadProducts } = useProducts()
   const { load: loadCustomers, customers } = useCustomers()
   const companySettings = useCompanyStore(s => s.settings)
+  const { openSession } = useCashRegister()
   const [cancelId, setCancelId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('pos')
+  const [view, setView] = useState<'tabs' | 'form'>('tabs')
 
   useEffect(() => {
     load()
@@ -41,6 +45,54 @@ export function SalesPage() {
   const customerMap = Object.fromEntries(customers.map(c => [c.id, c.name]))
 
   const saleCode = (s: Sale) => `${s.series}-${String(s.number).padStart(4, '0')}`
+
+  const handleFormSubmit = async (data: {
+    items: { id: string; product_id: string; quantity: number; unit_price: number; discount: number }[]
+    customer_id: string | null
+    type: 'cash' | 'credit'
+    payment_method: 'cash' | 'card' | 'transfer' | 'check'
+    globalDiscount: number
+    freightCost: number
+    notes: string
+    taxRate: number
+    saleDate: string
+    advanceAmount: number
+    advanceMethod: 'cash' | 'card' | 'transfer' | 'check'
+  }) => {
+    const sale = await confirm({
+      items: data.items.map(i => ({
+        product_id: i.product_id,
+        product_name: '',
+        sku: null,
+        unit_price: i.unit_price,
+        quantity: i.quantity,
+        discount: i.discount,
+        subtotal: i.quantity * i.unit_price * (1 - i.discount / 100),
+        stock: 0,
+      })),
+      customer_id: data.customer_id,
+      type: data.type,
+      payment_method: data.payment_method,
+      globalDiscount: data.globalDiscount,
+      freightCost: data.freightCost,
+      notes: data.notes,
+      taxRate: data.taxRate,
+      saleDate: data.saleDate,
+      cashSessionId: data.type === 'cash' ? (openSession?.id ?? null) : null,
+      advanceAmount: data.advanceAmount,
+      advanceMethod: data.advanceMethod,
+      advanceCashSessionId: openSession?.id ?? null,
+    })
+    const productNames: Record<string, string> = {}
+    for (const item of sale.items) {
+      const p = await db.products.where('id').equals(item.product_id).first()
+      if (p) productNames[item.product_id] = p.name
+    }
+    const customerName = data.customer_id ? (customerMap[data.customer_id] ?? null) : null
+    await generateSaleNotePdf(sale, productNames, customerName, companySettings, data.advanceAmount, data.advanceMethod)
+    setView('tabs')
+    setActiveTab('history')
+  }
 
   const handlePdf = async (saleId: string) => {
     const sale = await getWithItems(saleId)
@@ -82,6 +134,34 @@ export function SalesPage() {
     }
   }
 
+  // ── Vista: formulario de venta página completa ───────────────────
+  if (view === 'form') {
+    return (
+      <div className="space-y-5 animate-fade-in">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => setView('tabs')} className="shrink-0">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-primary/10 p-2">
+              <ClipboardList className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight">Nueva venta</h2>
+              <p className="text-sm text-muted-foreground">Formulario completo de venta</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border bg-card p-6">
+          <SaleForm
+            onSubmit={handleFormSubmit}
+            onCancel={() => setView('tabs')}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="animate-fade-in h-auto lg:h-[calc(100vh-7rem)]">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
@@ -95,16 +175,22 @@ export function SalesPage() {
               <p className="text-sm text-muted-foreground">POS y Notas de Pedido</p>
             </div>
           </div>
-          <TabsList>
-            <TabsTrigger value="pos" className="gap-1.5">
-              <ShoppingCart className="h-4 w-4" />
-              Punto de venta
-            </TabsTrigger>
-            <TabsTrigger value="history" className="gap-1.5">
-              <History className="h-4 w-4" />
-              Historial
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-center gap-2">
+            <TabsList>
+              <TabsTrigger value="pos" className="gap-1.5">
+                <ShoppingCart className="h-4 w-4" />
+                Punto de venta
+              </TabsTrigger>
+              <TabsTrigger value="history" className="gap-1.5">
+                <History className="h-4 w-4" />
+                Historial
+              </TabsTrigger>
+            </TabsList>
+            <Button variant="outline" size="sm" className="gap-1.5 h-9" onClick={() => setView('form')}>
+              <ClipboardList className="h-4 w-4" />
+              Formulario
+            </Button>
+          </div>
         </div>
 
         {/* POS */}

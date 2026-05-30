@@ -63,7 +63,16 @@ export function useSales() {
     }
   }
 
-  const getNextNumber = async (): Promise<number> => {
+  const getNextNumber = async (series: string): Promise<number> => {
+    if (navigator.onLine) {
+      const { data, error } = await supabase.rpc('get_next_number', {
+        p_org_id: orgId,
+        p_series: series,
+        p_kind: 'sale',
+      })
+      if (!error && typeof data === 'number') return data
+    }
+    // Fallback offline: máximo local + 1
     const rows = await db.sales.where('org_id').equals(orgId ?? '').toArray()
     return rows.reduce((max, s) => Math.max(max, s.number), 0) + 1
   }
@@ -94,7 +103,7 @@ export function useSales() {
       ? new Date(`${params.saleDate}T12:00:00`).toISOString()
       : now
     const series = companySettings?.receipt_series ?? 'NP001'
-    const number = await getNextNumber()
+    const number = await getNextNumber(series)
 
     // Calcular totales
     const itemsSubtotal = params.items.reduce((s, i) => s + i.subtotal, 0)

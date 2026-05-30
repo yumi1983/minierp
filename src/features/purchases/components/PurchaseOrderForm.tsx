@@ -13,7 +13,7 @@ import { useSuppliers } from '@/features/suppliers/hooks/useSuppliers'
 import { useProducts } from '@/features/products/hooks/useProducts'
 import { useUnits } from '@/features/catalog/hooks/useUnits'
 import { useCompanyStore } from '@/features/company/store/company.store'
-import { nanoid } from 'nanoid'
+import { generateUUID } from '@/shared/utils/uuid'
 import { purchaseOrderSchema, type PurchaseOrderFormData } from '../purchase.schema'
 
 interface InitialData {
@@ -55,7 +55,7 @@ export function PurchaseOrderForm({ initialData, onSubmit, onCancel }: Props) {
         expected_date: '',
         notes: '',
         tax_rate: 0,
-        items: [{ id: nanoid(), product_id: '', quantity: 1, unit_price: 0 }],
+        items: [{ id: generateUUID(), product_id: '', quantity: 1, unit_price: 0 }],
       },
     })
 
@@ -147,7 +147,7 @@ export function PurchaseOrderForm({ initialData, onSubmit, onCancel }: Props) {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => append({ id: nanoid(), product_id: '', quantity: 1, unit_price: 0 })}
+            onClick={() => append({ id: generateUUID(), product_id: '', quantity: 1, unit_price: 0 })}
           >
             <Plus className="h-3.5 w-3.5" />
             Agregar ítem
@@ -165,7 +165,7 @@ export function PurchaseOrderForm({ initialData, onSubmit, onCancel }: Props) {
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Producto</th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground w-20">Unidad</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-36">Cantidad</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-40">P. Unit.</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-52">P. Unit.</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-36">Subtotal</th>
                 <th className="px-3 py-2 w-10" />
               </tr>

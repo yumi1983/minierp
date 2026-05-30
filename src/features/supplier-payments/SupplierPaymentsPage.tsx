@@ -34,6 +34,7 @@ export function SupplierPaymentsPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'overdue' | 'paid'>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [orderCodes, setOrderCodes] = useState<Record<string, string>>({})
+  const [orderIssueDates, setOrderIssueDates] = useState<Record<string, string>>({})
   const [historySearch, setHistorySearch] = useState('')
   const [voucherUrl, setVoucherUrl] = useState<string | null>(null)
   const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null)
@@ -52,11 +53,16 @@ export function SupplierPaymentsPage() {
     const ids = debts.map(d => d.purchase_order_id).filter(Boolean) as string[]
     if (ids.length === 0) return
     Promise.all(ids.map(id => db.purchaseOrders.where('id').equals(id).first())).then(orders => {
-      const map: Record<string, string> = {}
+      const codes: Record<string, string> = {}
+      const dates: Record<string, string> = {}
       orders.forEach((o, i) => {
-        if (o) map[ids[i]] = `${o.series}-${String(o.number).padStart(4, '0')}`
+        if (o) {
+          codes[ids[i]] = `${o.series}-${String(o.number).padStart(4, '0')}`
+          dates[ids[i]] = o.issue_date ?? o.created_at
+        }
       })
-      setOrderCodes(map)
+      setOrderCodes(codes)
+      setOrderIssueDates(dates)
     })
   }, [debts])
 
@@ -187,6 +193,7 @@ export function SupplierPaymentsPage() {
                       debt={d}
                       supplierName={supplierMap[d.supplier_id] ?? '—'}
                       orderCode={d.purchase_order_id ? (orderCodes[d.purchase_order_id] ?? '...') : '—'}
+                      issueDate={d.purchase_order_id ? (orderIssueDates[d.purchase_order_id] ?? null) : null}
                       onPay={() => setSelectedId(d.id)}
                     />
                   ))
@@ -351,11 +358,13 @@ function DebtRow({
   debt,
   supplierName,
   orderCode,
+  issueDate,
   onPay,
 }: {
   debt: SupplierDebt
   supplierName: string
   orderCode: string
+  issueDate: string | null
   onPay: () => void
 }) {
   const balance = debt.total_amount - debt.paid_amount
@@ -369,7 +378,9 @@ function DebtRow({
         </div>
       </td>
       <td className="px-4 py-3 hidden md:table-cell font-mono text-xs text-muted-foreground">{orderCode}</td>
-      <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">{formatDate(debt.created_at)}</td>
+      <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">
+        {issueDate ? formatDate(issueDate) : '—'}
+      </td>
       <td className="px-4 py-3 text-right tabular-nums">{formatCurrency(debt.total_amount)}</td>
       <td className="px-4 py-3 text-right tabular-nums text-emerald-600">{formatCurrency(debt.paid_amount)}</td>
       <td className="px-4 py-3 text-right tabular-nums font-semibold text-destructive">{formatCurrency(balance)}</td>

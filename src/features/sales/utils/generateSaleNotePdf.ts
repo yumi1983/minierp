@@ -54,7 +54,7 @@ export async function generateSaleNotePdf(
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
-  doc.text('NOTA DE PEDIDO', pageW / 2, y + 7, { align: 'center' })
+  doc.text('NOTA DE VENTA', pageW / 2, y + 7, { align: 'center' })
   doc.setTextColor(0)
   y += 14
 
@@ -228,7 +228,7 @@ export async function generateSaleNotePdf(
     { align: 'center' }
   )
 
-  doc.save(`NP-${docCode}-${formatDate(sale.created_at, 'yyyyMMdd')}.pdf`)
+  doc.save(`NV-${docCode}-${formatDate(sale.created_at, 'yyyyMMdd')}.pdf`)
 }
 
 function loadImageAsBase64(url: string): Promise<string> {

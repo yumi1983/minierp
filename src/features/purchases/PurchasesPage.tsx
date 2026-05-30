@@ -1,11 +1,10 @@
 ﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ShoppingCart, Plus, Search, Trash2, CheckCircle, Send, Pencil, FileDown, Banknote, Eye, XCircle } from 'lucide-react'
+import { ShoppingCart, Plus, Search, Trash2, CheckCircle, Send, Pencil, FileDown, Banknote, Eye, XCircle, ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { Badge } from '@/shared/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { formatCurrency } from '@/shared/utils/currency'
 import { formatDate } from '@/shared/utils/date'
@@ -33,7 +32,7 @@ export function PurchasesPage() {
   const { suppliers, load: loadSuppliers } = useSuppliers()
   const companySettings = useCompanyStore(s => s.settings)
   const [search, setSearch] = useState('')
-  const [formOpen, setFormOpen] = useState(false)
+  const [view, setView] = useState<'list' | 'form'>('list')
   const [editingOrder, setEditingOrder] = useState<PurchaseOrderWithItems | null>(null)
   const [receiveOrder, setReceiveOrder] = useState<PurchaseOrderWithItems | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -79,13 +78,15 @@ export function PurchasesPage() {
         })),
       })
     }
-    setFormOpen(false)
+    setView('list')
   }
 
   const handleEdit = async (orderId: string) => {
     const order = await getWithItems(orderId)
-    if (order) { setEditingOrder(order); setFormOpen(true) }
+    if (order) { setEditingOrder(order); setView('form') }
   }
+
+  const handleCancel = () => { setView('list'); setEditingOrder(null) }
 
   const handlePdf = async (orderId: string) => {
     const order = await getWithItems(orderId)
@@ -111,6 +112,64 @@ export function PurchasesPage() {
 
   const orderCode = (o: PurchaseOrder) => `${o.series}-${String(o.number).padStart(4, '0')}`
 
+  // ── Vista: formulario página completa ────────────────────────────
+  if (view === 'form') {
+    return (
+      <div className="space-y-5 animate-fade-in">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={handleCancel} className="shrink-0">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-primary/10 p-2">
+              <ShoppingCart className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight">
+                {editingOrder ? 'Editar orden de compra' : 'Nueva orden de compra'}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {editingOrder
+                  ? `${editingOrder.series}-${String(editingOrder.number).padStart(4, '0')}`
+                  : 'Completa los datos y agrega los productos'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-card p-6">
+          <PurchaseOrderForm
+            initialData={editingOrder ? {
+              supplier_id: editingOrder.supplier_id,
+              issue_date: editingOrder.issue_date ?? new Date().toISOString().split('T')[0],
+              expected_date: editingOrder.expected_date,
+              notes: editingOrder.notes,
+              tax_rate: editingOrder.subtotal > 0
+                ? Math.round((editingOrder.tax_amount / editingOrder.subtotal) * 100)
+                : 0,
+              items: editingOrder.items.map(i => ({
+                id: i.id,
+                product_id: i.product_id,
+                quantity: i.quantity,
+                unit_price: i.unit_price,
+              })),
+            } : undefined}
+            onSubmit={handleCreate}
+            onCancel={handleCancel}
+          />
+        </div>
+
+        <ReceiveOrderDialog
+          open={!!receiveOrder}
+          order={receiveOrder}
+          onConfirm={(orderId: string, data: ReceptionData) => receive(orderId, data)}
+          onClose={() => setReceiveOrder(null)}
+        />
+      </div>
+    )
+  }
+
+  // ── Vista: lista ──────────────────────────────────────────────────
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -125,7 +184,7 @@ export function PurchasesPage() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setFormOpen(true)}>
+        <Button onClick={() => { setEditingOrder(null); setView('form') }}>
           <Plus className="h-4 w-4" />
           Nueva orden
         </Button>
@@ -286,34 +345,6 @@ export function PurchasesPage() {
           )}
         </table>
       </div>
-
-      {/* Dialog nueva / editar OC */}
-      <Dialog open={formOpen} onOpenChange={v => { setFormOpen(v); if (!v) setEditingOrder(null) }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingOrder ? 'Editar orden de compra' : 'Nueva orden de compra'}</DialogTitle>
-          </DialogHeader>
-          <PurchaseOrderForm
-            initialData={editingOrder ? {
-              supplier_id: editingOrder.supplier_id,
-              issue_date: editingOrder.issue_date ?? new Date().toISOString().split('T')[0],
-              expected_date: editingOrder.expected_date,
-              notes: editingOrder.notes,
-              tax_rate: editingOrder.subtotal > 0
-                ? Math.round((editingOrder.tax_amount / editingOrder.subtotal) * 100)
-                : 0,
-              items: editingOrder.items.map(i => ({
-                id: i.id,
-                product_id: i.product_id,
-                quantity: i.quantity,
-                unit_price: i.unit_price,
-              })),
-            } : undefined}
-            onSubmit={handleCreate}
-            onCancel={() => { setFormOpen(false); setEditingOrder(null) }}
-          />
-        </DialogContent>
-      </Dialog>
 
       {/* Dialog recepción */}
       <ReceiveOrderDialog

@@ -48,6 +48,7 @@ export interface ReceptionData {
   items: ReceptionItemData[]
   freight_cost: number
   notes: string
+  reception_date: string  // YYYY-MM-DD
 }
 
 export interface SupplierDebt {

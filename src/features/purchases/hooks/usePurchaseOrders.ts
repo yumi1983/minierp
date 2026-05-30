@@ -76,7 +76,15 @@ export function usePurchaseOrders() {
     return { ...order, items }
   }
 
-  const getNextNumber = async (): Promise<number> => {
+  const getNextNumber = async (series: string): Promise<number> => {
+    if (navigator.onLine) {
+      const { data, error } = await supabase.rpc('get_next_number', {
+        p_org_id: orgId,
+        p_series: series,
+        p_kind: 'purchase_order',
+      })
+      if (!error && typeof data === 'number') return data
+    }
     const last = await db.purchaseOrders
       .where('org_id').equals(orgId ?? '')
       .toArray()
@@ -96,7 +104,7 @@ export function usePurchaseOrders() {
 
     const now = new Date().toISOString()
     const series = companySettings?.po_series ?? 'OC001'
-    const number = await getNextNumber()
+    const number = await getNextNumber(series)
 
     const subtotal = dto.items.reduce((s, i) => s + i.quantity * i.unit_price, 0)
     const tax_amount = subtotal * (dto.tax_rate / 100)
@@ -242,6 +250,9 @@ export function usePurchaseOrders() {
     const items = Array.from(itemsSeen.values())
 
     const now = new Date().toISOString()
+    const receptionCreatedAt = receptionData.reception_date
+      ? new Date(`${receptionData.reception_date}T12:00:00`).toISOString()
+      : now
     const orderCode = `${order.series}-${String(order.number).padStart(4, '0')}`
 
     // Mapa de cantidades por ítem
@@ -311,7 +322,7 @@ export function usePurchaseOrders() {
         reference_id: orderId,
         notes: movementNotes,
         user_id: user.id,
-        created_at: now,
+        created_at: receptionCreatedAt,
       }
 
       await db.products.where('id').equals(item.product_id).modify({
@@ -346,7 +357,7 @@ export function usePurchaseOrders() {
         paid_amount: 0,
         due_date: null,
         status: 'active' as const,
-        created_at: now,
+        created_at: receptionCreatedAt,
         updated_at: now,
       }
       await db.supplierDebts.put({ ...debt, _syncStatus: 'pending' })

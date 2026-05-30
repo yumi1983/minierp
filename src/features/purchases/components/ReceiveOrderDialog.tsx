@@ -31,6 +31,7 @@ export function ReceiveOrderDialog({ open, order, onConfirm, onClose }: Props) {
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [freightCost, setFreightCost] = useState('0')
   const [receptionNotes, setReceptionNotes] = useState('')
+  const [receptionDate, setReceptionDate] = useState(() => new Date().toISOString().split('T')[0])
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
 
@@ -56,6 +57,7 @@ export function ReceiveOrderDialog({ open, order, onConfirm, onClose }: Props) {
     setRows(initial)
     setFreightCost('0')
     setReceptionNotes('')
+    setReceptionDate(new Date().toISOString().split('T')[0])
     setFieldErrors({})
   }, [order])
 
@@ -145,6 +147,7 @@ export function ReceiveOrderDialog({ open, order, onConfirm, onClose }: Props) {
         })),
         freight_cost: parseFloat(freightCost) || 0,
         notes: receptionNotes.trim(),
+        reception_date: receptionDate,
       }
       await onConfirm(order.id, receptionData)
       onClose()
@@ -195,6 +198,24 @@ export function ReceiveOrderDialog({ open, order, onConfirm, onClose }: Props) {
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Fecha de recepción */}
+          <div className="flex items-center gap-3">
+            <div className="space-y-1.5 w-48">
+              <Label htmlFor="reception-date" className="text-xs">Fecha de recepción *</Label>
+              <Input
+                id="reception-date"
+                type="date"
+                value={receptionDate}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={e => setReceptionDate(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-5">
+              Se usará como fecha de los movimientos de inventario en el Kardex.
+            </p>
+          </div>
+
           {/* Tabla de ítems */}
           <div className="rounded-lg border overflow-hidden">
             <table className="w-full text-sm">
