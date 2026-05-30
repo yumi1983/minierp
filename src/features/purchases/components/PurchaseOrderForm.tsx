@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus, Trash2, Loader2 } from 'lucide-react'
@@ -63,14 +62,6 @@ export function PurchaseOrderForm({ initialData, onSubmit, onCancel }: Props) {
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
   const items = watch('items')
   const watchTaxRate = watch('tax_rate')
-
-  // Recalcular subtotales automáticamente
-  useEffect(() => {
-    items.forEach((item, idx) => {
-      const sub = (item.quantity || 0) * (item.unit_price || 0)
-      setValue(`items.${idx}.subtotal`, sub)
-    })
-  }, [JSON.stringify(items.map(i => ({ q: i.quantity, p: i.unit_price })))])
 
   const subtotal = items.reduce((s, i) => s + (i.quantity || 0) * (i.unit_price || 0), 0)
   const taxAmount = subtotal * ((watchTaxRate || 0) / 100)
@@ -173,9 +164,9 @@ export function PurchaseOrderForm({ initialData, onSubmit, onCancel }: Props) {
               <tr>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Producto</th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground w-20">Unidad</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-28">Cantidad</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-32">P. Unit.</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-32">Subtotal</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-36">Cantidad</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-40">P. Unit.</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-36">Subtotal</th>
                 <th className="px-3 py-2 w-10" />
               </tr>
             </thead>
@@ -216,8 +207,8 @@ export function PurchaseOrderForm({ initialData, onSubmit, onCancel }: Props) {
                         type="number"
                         step="0.001"
                         min="0.001"
-                        className="h-8 text-xs text-right"
-                        {...register(`items.${idx}.quantity`)}
+                        className="h-9 text-sm text-right w-full"
+                        {...register(`items.${idx}.quantity`, { valueAsNumber: true })}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -225,8 +216,8 @@ export function PurchaseOrderForm({ initialData, onSubmit, onCancel }: Props) {
                         type="number"
                         step="0.01"
                         min="0"
-                        className="h-8 text-xs text-right"
-                        {...register(`items.${idx}.unit_price`)}
+                        className="h-9 text-sm text-right w-full"
+                        {...register(`items.${idx}.unit_price`, { valueAsNumber: true })}
                       />
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-xs font-medium">
