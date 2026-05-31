@@ -44,16 +44,29 @@ export function useSales() {
     loadingRef.current = true
     setLoading(true)
     try {
-      const { data, error } = await supabase
+      const { data: salesData, error: salesError } = await supabase
         .from('sales')
         .select('*')
         .eq('org_id', orgId)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(100)
-      if (error) throw error
-      for (const row of data ?? []) {
+      if (salesError) throw salesError
+
+      for (const row of salesData ?? []) {
         await upsertById(db.sales, { ...row, _syncStatus: 'synced' })
+      }
+
+      const saleIds = (salesData ?? []).map(s => s.id)
+      if (saleIds.length > 0) {
+        const { data: itemsData, error: itemsError } = await supabase
+          .from('sale_items')
+          .select('*')
+          .in('sale_id', saleIds)
+        if (itemsError) throw itemsError
+        for (const row of itemsData ?? []) {
+          await upsertById(db.saleItems, row)
+        }
       }
     } catch (err) {
       console.error('[useSales] load:', err)
